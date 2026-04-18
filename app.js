@@ -1,5 +1,4 @@
 // --- 1. Supabase Initialisierung ---
-// Deine bereitgestellten Supabase-Daten wurden hier eingefügt
 const SUPABASE_URL = 'https://bdiinqdvzvhynyjhaele.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zNW_Gi3rJ4bsZSOgVD3azg_oP431x6k';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
