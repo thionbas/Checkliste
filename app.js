@@ -1,8 +1,6 @@
 // --- 1. Supabase Initialisierung ---
 const SUPABASE_URL = 'https://bdiinqdvzvhynyjhaele.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zNW_Gi3rJ4bsZSOgVD3azg_oP431x6k';
-
-// NEU: Wir nennen die Variable 'supabaseClient', um den Namenskonflikt zu beheben!
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- 2. Globale Variablen ---
@@ -15,6 +13,7 @@ const loginSection = document.getElementById('login-section');
 const adminSection = document.getElementById('admin-section');
 const userSection = document.getElementById('user-section');
 const activeChecklistSection = document.getElementById('active-checklist-section');
+const checklistBuilderSection = document.getElementById('checklist-builder-section');
 const userInfo = document.getElementById('user-info');
 const userEmailSpan = document.getElementById('user-email');
 
@@ -57,6 +56,13 @@ async function checkUser() {
 
 // --- 5. Dashboard laden ---
 function loadDashboard() {
+    // Alles erstmal verstecken
+    adminSection.classList.add('hidden');
+    userSection.classList.add('hidden');
+    activeChecklistSection.classList.add('hidden');
+    checklistBuilderSection.classList.add('hidden');
+
+    // Je nach Rolle einblenden
     if (userRole === 'admin') {
         adminSection.classList.remove('hidden');
     }
@@ -70,7 +76,7 @@ async function loadAvailableChecklists() {
     const container = document.getElementById('user-checklists-list');
     container.innerHTML = '';
     
-    if (checklists) {
+    if (checklists && checklists.length > 0) {
         checklists.forEach(cl => {
             const btn = document.createElement('button');
             btn.textContent = cl.title + " starten";
@@ -79,6 +85,8 @@ async function loadAvailableChecklists() {
             btn.addEventListener('click', () => startChecklist(cl));
             container.appendChild(btn);
         });
+    } else {
+        container.innerHTML = '<p>Bisher sind keine Checklisten verfügbar.</p>';
     }
 }
 
@@ -127,7 +135,12 @@ async function startChecklist(checklist) {
     });
 }
 
-// --- 7. Checkliste speichern ---
+// User bricht aktive Checkliste ab
+document.getElementById('btn-cancel-checklist').addEventListener('click', () => {
+    loadDashboard();
+});
+
+// --- 7. Checkliste speichern (User füllt aus) ---
 document.getElementById('btn-submit-checklist').addEventListener('click', async () => {
     const form = document.getElementById('checklist-form');
     if (!form.checkValidity()) {
@@ -175,9 +188,111 @@ document.getElementById('btn-submit-checklist').addEventListener('click', async 
         alert("Fehler beim Speichern der Antworten!");
     } else {
         alert("Checkliste erfolgreich gespeichert!");
-        activeChecklistSection.classList.add('hidden');
         loadDashboard(); 
     }
+});
+
+// --- 8. Checklisten-Baukasten (Admin) ---
+const builderItemsContainer = document.getElementById('builder-items');
+let builderItems = [];
+
+// Klick auf "Neue Checkliste erstellen"
+document.getElementById('btn-create-checklist').addEventListener('click', () => {
+    adminSection.classList.add('hidden');
+    userSection.classList.add('hidden');
+    checklistBuilderSection.classList.remove('hidden');
+    
+    // Formular zurücksetzen
+    document.getElementById('new-checklist-title').value = '';
+    document.getElementById('new-item-text').value = '';
+    document.getElementById('new-item-units').value = '';
+    document.getElementById('new-item-units').classList.add('hidden');
+    document.getElementById('new-item-type').value = 'yes_no_na';
+    builderItems = [];
+    renderBuilderItems();
+});
+
+// Art des Prüfpunktes wechseln (Einheiten-Feld ein/ausblenden)
+document.getElementById('new-item-type').addEventListener('change', (e) => {
+    const unitsInput = document.getElementById('new-item-units');
+    if (e.target.value === 'number_unit') {
+        unitsInput.classList.remove('hidden');
+    } else {
+        unitsInput.classList.add('hidden');
+    }
+});
+
+// Punkt zur Liste hinzufügen
+document.getElementById('btn-add-item').addEventListener('click', () => {
+    const text = document.getElementById('new-item-text').value;
+    const type = document.getElementById('new-item-type').value;
+    const unitsStr = document.getElementById('new-item-units').value;
+
+    if (!text) return alert('Bitte einen Text für den Prüfpunkt eingeben!');
+
+    let allowed_units = [];
+    if (type === 'number_unit') {
+        if (!unitsStr) return alert('Bitte Einheiten angeben (z.B. Bar, °C)');
+        allowed_units = unitsStr.split(',').map(u => u.trim()); 
+    }
+
+    builderItems.push({ item_text: text, item_type: type, allowed_units: allowed_units });
+    
+    // Felder wieder leeren
+    document.getElementById('new-item-text').value = '';
+    document.getElementById('new-item-units').value = '';
+    renderBuilderItems();
+});
+
+// Baukasten-Liste anzeigen
+function renderBuilderItems() {
+    builderItemsContainer.innerHTML = '';
+    builderItems.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.style.padding = '10px';
+        div.style.borderBottom = '1px solid #ccc';
+        div.style.marginBottom = '10px';
+        
+        let typeInfo = item.item_type === 'yes_no_na' ? 'Ja / Nein / N.A.' : `Zahl (${item.allowed_units.join(', ')})`;
+        div.innerHTML = `<strong>${index + 1}. ${item.item_text}</strong> <br><small>Typ: ${typeInfo}</small>`;
+        builderItemsContainer.appendChild(div);
+    });
+}
+
+// Abbrechen
+document.getElementById('btn-cancel-builder').addEventListener('click', () => {
+    loadDashboard();
+});
+
+// Checkliste endgültig in Datenbank speichern
+document.getElementById('btn-save-new-checklist').addEventListener('click', async () => {
+    const title = document.getElementById('new-checklist-title').value;
+    if (!title) return alert('Bitte einen Titel für die Checkliste vergeben!');
+    if (builderItems.length === 0) return alert('Bitte füge mindestens einen Prüfpunkt hinzu!');
+
+    // 1. Die Haupt-Checkliste anlegen
+    const { data: clData, error: clErr } = await supabaseClient
+        .from('checklists')
+        .insert([{ title: title }])
+        .select()
+        .single();
+
+    if (clErr) return alert('Fehler beim Erstellen der Checkliste!');
+
+    // 2. Die einzelnen Prüfpunkte anlegen
+    const itemsToInsert = builderItems.map(item => ({
+        checklist_id: clData.id,
+        item_text: item.item_text,
+        item_type: item.item_type,
+        allowed_units: item.item_type === 'number_unit' ? item.allowed_units : null
+    }));
+
+    const { error: itemErr } = await supabaseClient.from('checklist_items').insert(itemsToInsert);
+
+    if (itemErr) return alert('Fehler beim Speichern der Prüfpunkte!');
+
+    alert('Checkliste erfolgreich erstellt!');
+    loadDashboard(); // Lädt das Dashboard neu, die neue Liste ist sofort sichtbar
 });
 
 // Start-Check
