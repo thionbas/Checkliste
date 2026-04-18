@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AP Checklisten App</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <header class="main-header">
+        <h1>AP Checklisten App</h1>
+        <div id="user-info" class="hidden">
+            <span id="user-email"></span>
+            <button id="btn-logout">Logout</button>
+        </div>
+    </header>
+
+    <main id="app-container">
+        <section id="login-section">
+            <h2>Login</h2>
+            <input type="email" id="email-input" placeholder="E-Mail Adresse" required>
+            <input type="password" id="password-input" placeholder="Passwort" required>
+            <button id="btn-login">Einloggen</button>
+        </section>
+
+        <section id="admin-section" class="hidden">
+            <h2>Admin Dashboard</h2>
+            <button id="btn-create-checklist">Neue Checkliste erstellen</button>
+            <div id="admin-checklists-list"></div>
+        </section>
+
+        <section id="user-section" class="hidden">
+            <h2>Verfügbare Checklisten</h2>
+            <div id="user-checklists-list"></div>
+        </section>
+
+        <section id="active-checklist-section" class="hidden">
+            <h2 id="active-checklist-title"></h2>
+            <form id="checklist-form"></form>
+            <button id="btn-submit-checklist">Checkliste abschließen</button>
+        </section>
+
+        <section id="results-section" class="hidden">
+            <h2>Bisherige Ergebnisse</h2>
+            <div id="results-list"></div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
