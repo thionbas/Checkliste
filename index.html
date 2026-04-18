@@ -27,29 +27,32 @@
 
         <section id="admin-section" class="hidden">
             <h2>Admin Dashboard</h2>
-            <button id="btn-create-checklist">Neue Checkliste erstellen</button>
+            <div class="admin-nav">
+                <button id="btn-create-checklist">➕ Neue Checkliste erstellen</button>
+                <button id="btn-view-results" style="background: #2196F3;">📊 Ergebnisse ansehen</button>
+            </div>
             <div id="admin-checklists-list"></div>
         </section>
 
         <section id="checklist-builder-section" class="hidden">
             <h2>Neue Checkliste bauen</h2>
-            <input type="text" id="new-checklist-title" placeholder="Titel der Checkliste (z.B. Druckbehälter Prüfung)" required>
+            <input type="text" id="new-checklist-title" placeholder="Titel (z.B. Druckbehälter Prüfung)" required>
             
-            <div id="builder-items" style="margin-bottom: 20px;"></div>
+            <div id="builder-items"></div>
             
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ddd; margin-bottom: 20px;">
-                <h4>Neuen Prüfpunkt hinzufügen:</h4>
-                <input type="text" id="new-item-text" placeholder="Frage / Anweisung (z.B. Sichtprüfung OK?)">
+            <div class="builder-tool">
+                <h4>Prüfpunkt hinzufügen:</h4>
+                <input type="text" id="new-item-text" placeholder="Frage / Anweisung">
                 <select id="new-item-type">
                     <option value="yes_no_na">Ja / Nein / N.A.</option>
-                    <option value="number_unit">Zahl + Einheit eintragen</option>
+                    <option value="number_unit">Zahl + Einheit</option>
                 </select>
-                <input type="text" id="new-item-units" class="hidden" placeholder="Einheiten kommagetrennt (z.B. Bar, mbar, °C)">
-                <button id="btn-add-item" style="background: #2196F3;">Punkt zur Liste hinzufügen</button>
+                <input type="text" id="new-item-units" class="hidden" placeholder="Einheiten (z.B. Bar, °C, mbar)">
+                <button id="btn-add-item" style="background: #2196F3;">Punkt hinzufügen</button>
             </div>
             
-            <button id="btn-save-new-checklist">Checkliste in Datenbank speichern</button>
-            <button id="btn-cancel-builder" style="background: #f44336; margin-top: 10px;">Abbrechen</button>
+            <button id="btn-save-new-checklist">Checkliste speichern</button>
+            <button id="btn-cancel-builder" class="btn-secondary">Abbrechen</button>
         </section>
 
         <section id="user-section" class="hidden">
@@ -61,12 +64,13 @@
             <h2 id="active-checklist-title"></h2>
             <form id="checklist-form"></form>
             <button id="btn-submit-checklist">Checkliste abschließen</button>
-            <button id="btn-cancel-checklist" style="background: #f44336; margin-top: 10px;">Zurück zur Übersicht</button>
+            <button id="btn-cancel-checklist" class="btn-secondary">Abbrechen</button>
         </section>
 
         <section id="results-section" class="hidden">
-            <h2>Bisherige Ergebnisse</h2>
+            <h2>Abgeschlossene Prüfungen</h2>
             <div id="results-list"></div>
+            <button id="btn-close-results" class="btn-secondary">Zurück zum Dashboard</button>
         </section>
     </main>
 
