@@ -170,7 +170,7 @@ document.getElementById('btn-save-new-checklist').addEventListener('click', asyn
 
 document.getElementById('btn-cancel-builder').addEventListener('click', loadDashboard);
 
-// --- 7. Admin: Ergebnisse ---
+// --- 7. Admin: Ergebnisse & PDF Export ---
 document.getElementById('btn-view-results').addEventListener('click', async () => {
     [adminSection, userSection].forEach(s => s.classList.add('hidden'));
     resultsSection.classList.remove('hidden');
@@ -180,17 +180,115 @@ document.getElementById('btn-view-results').addEventListener('click', async () =
     runs.forEach(r => {
         const d = document.createElement('div');
         d.className = 'checklist-item';
-        d.innerHTML = `<strong>${r.checklists.title}</strong><br><small>${new Date(r.completed_at).toLocaleString()}</small> <button onclick="showDetails('${r.id}')" style="float:right">Details</button>`;
+        d.innerHTML = `<strong>${r.checklists.title}</strong><br><small>${new Date(r.completed_at).toLocaleString()}</small> <button onclick="showDetails('${r.id}')" style="float:right">Details & PDF</button>`;
         cont.appendChild(d);
     });
 });
 
 window.showDetails = async (id) => {
+    // 1. Daten der Checkliste abrufen
+    const { data: run } = await supabaseClient.from('completed_checklists').select(`id, completed_at, checklists(title)`).eq('id', id).single();
+    
+    // 2. Die Antworten abrufen
     const { data: res } = await supabaseClient.from('checklist_responses').select('answer_status, answer_number, answer_unit, comment, checklist_items(item_text)').eq('completed_checklist_id', id);
-    let info = res.map(r => `${r.checklist_items.item_text}: ${r.answer_status || (r.answer_number + ' ' + r.answer_unit)} ${r.comment ? '['+r.comment+']' : ''}`).join('\n');
-    alert(info);
+    
+    const confirmDownload = confirm("Möchten Sie den Prüfbericht für '" + run.checklists.title + "' als PDF herunterladen?");
+    
+    if (confirmDownload) {
+        generatePDF(run, res);
+    }
 };
+
+function generatePDF(run, responses) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+
+    // --- KOPFZEILE (Dunkelblauer Balken) ---
+    doc.setFillColor(0, 0, 139); // Dunkelblau
+    doc.rect(0, 0, pageWidth, 40, 'F'); // Balken, 40mm hoch
+
+    // --- LOGO (Quadratisch, Top Rechts) ---
+    const logoSize = 30; // Quadrat
+    doc.setFillColor(255, 255, 255); // Weißer Hintergrund
+    doc.rect(pageWidth - logoSize - 5, 5, logoSize, logoSize, 'F');
+    
+    // Logo Text ("TEST" und "The Test Company")
+    doc.setTextColor(0, 0, 0); // Schwarz
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("TEST", pageWidth - logoSize / 2 - 5, 17, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("The Test Company", pageWidth - logoSize / 2 - 5, 22, { align: "center" });
+
+    // --- TEXTE IM BLAUEN BALKEN ---
+    doc.setTextColor(255, 255, 255); // Weiße Schrift
+    
+    // Ganz dünn oben: Checkliste
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Checkliste", 10, 8);
+
+    // Mitte: Überschrift und Laufende Nummer
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    const title = run.checklists.title;
+    const runNo = "Nr. " + run.id.toString().padStart(5, '0');
+    // Zentriert, wir lassen das Logo rechts etwas aus der Berechnung raus
+    doc.text(title + " | " + runNo, pageWidth / 2 - 10, 22, { align: "center" });
+
+    // Unten im Balken: Ersteller, Freigabe, Freigabedatum
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const dateStr = new Date(run.completed_at).toLocaleDateString();
+    
+    // In drei Spalten aufteilen
+    doc.text(`Ersteller: ${currentUser.email}`, 10, 35);
+    doc.text(`Freigabe: Administrator`, 80, 35);
+    doc.text(`Datum: ${dateStr}`, 150, 35);
+
+    // --- TABELLEN-INHALT ---
+    const tableBody = responses.map(r => {
+        let ergebnis = r.answer_status ? r.answer_status : r.answer_number;
+        let einheit = r.answer_unit ? r.answer_unit : "-";
+        if(r.comment) einheit += `\n(${r.comment})`; // Kommentar unter die Einheit packen
+        
+        return [
+            r.checklist_items.item_text,
+            ergebnis,
+            einheit,
+            "" // Leeres Feld für die Unterschrift
+        ];
+    });
+
+    doc.autoTable({
+        startY: 50,
+        head: [['Aufgabe / Prüfpunkt', 'Ergebnis', 'Einheit / Kommentar', 'Unterschrift']],
+        body: tableBody,
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+        styles: { fontSize: 10, cellPadding: 4, valign: 'middle', halign: 'center', lineColor: [50, 50, 50], lineWidth: 0.1 },
+        columnStyles: {
+            0: { halign: 'left', cellWidth: 70 }, // Aufgabe
+            1: { cellWidth: 40 }, // Ergebnis
+            2: { cellWidth: 40 }, // Einheit/Kommentar
+            3: { cellWidth: 35, minCellHeight: 15 } // Unterschrift (Extra hoch, damit Platz für den Stift ist)
+        }
+    });
+
+    // --- DIGITALE UNTERSCHRIFT (Abschluss) ---
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Dieses Dokument wurde digital durch die AP Checklisten App validiert.", 10, finalY);
+    doc.text("Die digitale Unterschrift durch " + currentUser.email + " ersetzt die handschriftliche Freigabe.", 10, finalY + 5);
+
+    // PDF im Browser herunterladen
+    doc.save(`Checkliste_${run.checklists.title}_${runNo}.pdf`);
+}
 
 document.getElementById('btn-close-results').addEventListener('click', loadDashboard);
 
+// Start-Check
 checkUser();
